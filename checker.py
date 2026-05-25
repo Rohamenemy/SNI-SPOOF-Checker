@@ -10,9 +10,11 @@ import re
 class SNISpoofingGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("SNI Spoofing Cheker")
+        self.root.title("SNI Spoofing Checker")
 
-        window_width, window_height = 1000, 750
+        # Fix Window Sizing
+        window_width, window_height = 950, 700
+        self.root.minsize(850, 600) # Prevent window from getting too small
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         center_x = int(screen_width / 2 - window_width / 2)
@@ -20,6 +22,9 @@ class SNISpoofingGUI:
         self.root.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
         
         self.root.configure(bg="#090D16")
+        
+        # Handle safe closing
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
         self.is_scanning = False
         self.valid_ips = []
@@ -106,13 +111,13 @@ class SNISpoofingGUI:
 
         subnet_frame = ttk.LabelFrame(inputs_frame, text=" IP Subnets Target ", padding="15")
         subnet_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
-        self.subnet_text = tk.Text(subnet_frame, height=5, bg="#0F172A", fg="#38BDF8", insertbackground="white", bd=0, font=("Consolas", 11), wrap=tk.WORD)
+        self.subnet_text = tk.Text(subnet_frame, height=4, bg="#0F172A", fg="#38BDF8", insertbackground="white", bd=0, font=("Consolas", 11), wrap=tk.WORD)
         self.subnet_text.insert("1.0", "104.19.229.0/24\n104.16.0.0/24")
         self.subnet_text.pack(fill=tk.BOTH, expand=True)
 
         sni_frame = ttk.LabelFrame(inputs_frame, text=" SNI Hostnames ", padding="15")
         sni_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(10, 0))
-        self.sni_text = tk.Text(sni_frame, height=5, bg="#0F172A", fg="#38BDF8", insertbackground="white", bd=0, font=("Consolas", 11), wrap=tk.WORD)
+        self.sni_text = tk.Text(sni_frame, height=4, bg="#0F172A", fg="#38BDF8", insertbackground="white", bd=0, font=("Consolas", 11), wrap=tk.WORD)
         self.sni_text.insert("1.0", "www.hcaptcha.com\nwww.cloudflare.com")
         self.sni_text.pack(fill=tk.BOTH, expand=True)
 
@@ -140,9 +145,9 @@ class SNISpoofingGUI:
         self.tree.heading("sni", text="TARGET SNI")
         self.tree.heading("ping", text="PING RESPONSE")
 
-        self.tree.column("ip", width=200, anchor=tk.CENTER)
-        self.tree.column("sni", width=400, anchor=tk.W)
-        self.tree.column("ping", width=150, anchor=tk.CENTER)
+        self.tree.column("ip", width=180, anchor=tk.CENTER)
+        self.tree.column("sni", width=350, anchor=tk.W)
+        self.tree.column("ping", width=120, anchor=tk.CENTER)
         
         self.tree.tag_configure('oddrow', background="#0F172A")
         self.tree.tag_configure('evenrow', background="#111827")
@@ -152,6 +157,13 @@ class SNISpoofingGUI:
 
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+    def on_closing(self):
+        """Handle safe termination of the app."""
+        self.is_scanning = False
+        for task in self.workers_tasks:
+            task.cancel()
+        self.root.destroy()
 
     def animate_status(self):
         if self.is_scanning:
@@ -228,23 +240,34 @@ class SNISpoofingGUI:
             loop.run_until_complete(self.run_scanner(subnets, snis, timeout, concurrency))
         except asyncio.CancelledError:
             pass
+        except Exception as e:
+            pass
         finally:
             loop.close()
 
         self.is_scanning = False
-        self.root.after(0, lambda: self.pbar.stop())
-        self.root.after(0, lambda: self.start_btn.config(state=tk.NORMAL, text="▶ START SCAN", bg="#00F0FF", fg="#090D16"))
+        try:
+            self.root.after(0, lambda: self.pbar.stop())
+            self.root.after(0, lambda: self.start_btn.config(state=tk.NORMAL, text="▶ START SCAN", bg="#00F0FF", fg="#090D16"))
+        except tk.TclError:
+            pass # The window was closed
 
         if self.valid_ips:
             self.valid_ips.sort(key=lambda x: x[2])
             with open("working_tls_ips.txt", "w") as f:
                 for ip, sni, ping in self.valid_ips:
                     f.write(f"{ip} | {sni} | {ping}ms\n")
-            self.update_status("SUCCESSFULLY COMPLETED", "#10B981")
-            self.root.after(0, lambda: messagebox.showinfo("Success", f"Found {len(self.valid_ips)} working IPs!"))
+            try:
+                self.update_status("SUCCESSFULLY COMPLETED", "#10B981")
+                self.root.after(0, lambda: messagebox.showinfo("Success", f"Found {len(self.valid_ips)} working IPs!"))
+            except tk.TclError:
+                pass
         else:
-            self.update_status("FINISHED WITH NO RESULTS", "#F59E0B")
-            self.root.after(0, lambda: messagebox.showinfo("Finished", "No working IPs found for these SNIs."))
+            try:
+                self.update_status("FINISHED WITH NO RESULTS", "#F59E0B")
+                self.root.after(0, lambda: messagebox.showinfo("Finished", "No working IPs found for these SNIs."))
+            except tk.TclError:
+                pass
 
     async def worker(self, queue, port, timeout, ctx):
         while True:
@@ -294,8 +317,10 @@ class SNISpoofingGUI:
                     for ip in network.hosts():
                         if not self.is_scanning:
                             break
-                        for sni in snis:
+                        try:
                             await queue.put((str(ip), sni))
+                        except asyncio.CancelledError:
+                            break
                 except ValueError:
                     pass
                 
@@ -303,7 +328,10 @@ class SNISpoofingGUI:
                     break
 
             for _ in range(concurrency):
-                await queue.put(None)
+                try:
+                    await queue.put(None)
+                except asyncio.CancelledError:
+                    break
 
         prod_task = asyncio.create_task(producer())
         self.workers_tasks = [asyncio.create_task(self.worker(queue, port, timeout, ctx)) for _ in range(concurrency)]
