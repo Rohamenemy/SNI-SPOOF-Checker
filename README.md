@@ -23,7 +23,7 @@
 2. اسکریپت را از طریق ترمینال (Terminal) یا Command Prompt اجرا کنید:
 
     ```bash
-    python sni_checker.py
+    python checker.py
     ```
 
 3. **کانفیگ اسکن خود را تنظیم کنید:**
