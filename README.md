@@ -39,3 +39,11 @@
 ```text
 104.19.229.15 | [www.hcaptcha.com](https://www.hcaptcha.com) | 85ms
 104.16.0.42 | [www.cloudflare.com](https://www.cloudflare.com) | 120ms
+```
+### ⚠️ نکته خیلی مهم
+
+* بزارید خود برنامه config.json رو بسازه و بعد خودتون ادیتش کنید
+
+### حمایت 🫵
+* 0xeF3184386Fa44dA3Ef61B314a666058De5062aE7 USD (ERC20)
+* TFF8qSB6W3FiZcsTopeBeUTCCg2Zd7z51E USDT (TRC20)
