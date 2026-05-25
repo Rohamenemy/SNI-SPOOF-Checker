@@ -30,7 +30,7 @@ Python 3.8 یا نسخه‌های جدیدتر
 ابتدا مخزن را کلون کنید (یا فایل‌ها را دانلود کنید):
 
 Bash
-git clone https://github.com/YourUsername/SNI-Spoofing.git
+https://github.com/Rohamenemy/SNI-SPOOF-Checker.git
 cd SNI-Spoofing
 برنامه را با پایتون اجرا کنید:
 
